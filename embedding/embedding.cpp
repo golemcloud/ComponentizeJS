@@ -26,7 +26,7 @@ void builtin_impl_console_log(Console::LogType log_ty, const char *msg) {
 } // builtins::web::console
 
 extern "C"
-{ 
+{
   using componentize::embedding::Runtime;
   using componentize::embedding::cabi_free;
   using componentize::embedding::ReportAndClearException;
@@ -273,8 +273,7 @@ extern "C"
       cabi_free(ptr);
     }
     Runtime.free_list.clear();
-    RootedValue result(Runtime.cx);
-    Runtime.engine->run_event_loop(&result);
+    Runtime.engine->run_event_loop();
     LOG("(post_call) end");
   }
 
@@ -534,7 +533,7 @@ namespace componentize::embedding
     }
 
     LOG("(wizer) complete");
-    
+
     return true;
   }
 
