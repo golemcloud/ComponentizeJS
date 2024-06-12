@@ -68,14 +68,7 @@ function asyncToSync(promise) {
       done = true;
     });
 
-
-  let i = 0;
-  while (!done && i < 10000) {
-    console.log('runEventLoop');
-    i += 1;
-    runEventLoop();
-  }
-  console.log(`eventLoop count: ${i}`);
+  runEventLoopUntilInterest();
 
   if (!done) {
     let error = new Error('asyncToSync: illegal state: not done');
