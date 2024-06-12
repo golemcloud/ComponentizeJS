@@ -252,3 +252,88 @@ suite('WASI', () => {
     strictEqual(result.split(',').length, 3);
   });
 });
+
+const fetchSyncCases = await readdir(new URL('./fetch-sync', import.meta.url));
+suite.only('Fetch-Sync', () => {
+  const libSourcePromise = readFile(
+    new URL(`./fetch-sync/lib/lib.js`, import.meta.url),
+    'utf8'
+  );
+
+
+  for (const name of fetchSyncCases) {
+    if (!name.endsWith('.js')) {
+      continue;
+    }
+    test(name, async () => {
+      let libSource = await libSourcePromise;
+      let source = await readFile(
+        new URL(`./fetch-sync/${name}`, import.meta.url),
+        'utf8'
+      );
+
+      source = libSource + "\n" + source;
+
+      try {
+        const { component, imports } = await componentize(source, {
+          sourceName: `${name}`,
+          witPath: fileURLToPath(new URL('./wit', import.meta.url)),
+          worldName: 'test2',
+          enableStdout: true
+        });
+
+        const map = {
+          'wasi:cli-base/*': '@bytecodealliance/preview2-shim/cli-base#*',
+          'wasi:clocks/*': '@bytecodealliance/preview2-shim/clocks#*',
+          'wasi:filesystem/*': '@bytecodealliance/preview2-shim/filesystem#*',
+          'wasi:http/*': '@bytecodealliance/preview2-shim/http#*',
+          'wasi:io/*': '@bytecodealliance/preview2-shim/io#*',
+          'wasi:logging/*': '@bytecodealliance/preview2-shim/logging#*',
+          'wasi:poll/*': '@bytecodealliance/preview2-shim/poll#*',
+          'wasi:random/*': '@bytecodealliance/preview2-shim/random#*',
+          'wasi:sockets/*': '@bytecodealliance/preview2-shim/sockets#*'
+        };
+        for (const [impt] of imports) {
+          if (impt.startsWith('wasi:')) continue;
+          let importName = impt.split('/').pop();
+          if (importName === 'test') importName = 'imports';
+          map[impt] = `../../fetch-sync/${importName}.js`;
+        }
+
+        const { files } = await transpile(component, {
+          name,
+          map,
+          wasiShim: true,
+          validLiftingOptimization: false
+        });
+
+        await mkdir(new URL(`./output/fetch-sync/${name}/interfaces`, import.meta.url), {
+          recursive: true
+        });
+
+        await writeFile(
+          new URL(`./output/fetch-sync/${name}.component.wasm`, import.meta.url),
+          component
+        );
+
+        for (const file of Object.keys(files)) {
+          let source = files[file];
+          await writeFile(
+            new URL(`./output/fetch-sync/${name}/${file}`, import.meta.url),
+            source
+          );
+        }
+
+        var instance = await import(`./output/fetch-sync/${name}/${name}.js`);
+      } catch (e) {
+        if (test.err) {
+          test.err(e);
+          return;
+        }
+        throw e;
+      }
+
+      strictEqual(instance.getResult(), 'ok');
+    });
+  }
+});
