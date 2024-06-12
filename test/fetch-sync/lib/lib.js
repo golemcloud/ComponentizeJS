@@ -23,6 +23,16 @@ function testGetJsonArray(url, length) {
   });
 }
 
+function testPatch(url, body) {
+  return testAndReturnOK(() => {
+    let result = syncPatchJSON(url, body);
+    for (let key of Object.keys(body)) {
+      assert(result[key] != null, `result[${key}] is not nullish`);
+      assert(result[key] == body[key], `result[${key}]: ${result[key]}, body[${key}]: ${body[key]}`);
+    }
+  });
+}
+
 function testGetTextArray(url, length) {
   return testAndReturnOK(() => {
     let textResult = syncGetText(url);
@@ -49,6 +59,21 @@ async function asyncGetText(url) {
 
 function syncGetText(url) {
   return asyncToSync(asyncGetText(url));
+}
+
+async function asyncPatchJson(url, body) {
+  let response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-type': 'application/json; charset=UTF-8'
+    },
+    body: JSON.stringify(body)
+  });
+  return response.json();
+}
+
+function syncPatchJSON(url, body) {
+  return asyncToSync(asyncPatchJson(url, body));
 }
 
 function asyncToSync(promise) {
