@@ -35,8 +35,7 @@ function testGetTextArray(url, length) {
 
 async function asyncGetJson(url) {
   let response = await fetch(url);
-  let json = response.json();
-  return json;
+  return response.json();
 }
 
 function syncGetJson(url) {
@@ -45,8 +44,7 @@ function syncGetJson(url) {
 
 async function asyncGetText(url) {
   let response = await fetch(url);
-  let text = response.text();
-  return text;
+  return response.text();
 }
 
 function syncGetText(url) {
@@ -72,11 +70,12 @@ function asyncToSync(promise) {
 
 
   let i = 0;
-  while (!done && i < 100) {
+  while (!done && i < 10000) {
     console.log('runEventLoop');
     i += 1;
     runEventLoop();
   }
+  console.log(`eventLoop count: ${i}`);
 
   if (!done) {
     let error = new Error('asyncToSync: illegal state: not done');

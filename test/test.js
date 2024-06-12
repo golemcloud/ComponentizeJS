@@ -253,6 +253,9 @@ suite('WASI', () => {
   });
 });
 
+const onlyFetchSyncCases = new Set([
+  // "get-json-mid-sync-repeated.js",
+]);
 const fetchSyncCases = await readdir(new URL('./fetch-sync', import.meta.url));
 suite.only('Fetch-Sync', () => {
   const libSourcePromise = readFile(
@@ -265,6 +268,11 @@ suite.only('Fetch-Sync', () => {
     if (!name.endsWith('.js')) {
       continue;
     }
+
+    if (onlyFetchSyncCases.size > 0 && !onlyFetchSyncCases.has(name)) {
+      continue;
+    }
+
     test(name, async () => {
       let libSource = await libSourcePromise;
       let source = await readFile(
@@ -278,8 +286,7 @@ suite.only('Fetch-Sync', () => {
         const { component, imports } = await componentize(source, {
           sourceName: `${name}`,
           witPath: fileURLToPath(new URL('./wit', import.meta.url)),
-          worldName: 'test2',
-          enableStdout: true
+          worldName: 'test2'
         });
 
         const map = {
