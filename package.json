@@ -1,7 +1,7 @@
 {
-  "name": "@bytecodealliance/componentize-js",
-  "version": "0.8.3",
-  "homepage": "https://github.com/bytecodealliance/componentize-js#readme",
+  "name": "@golemcloud/componentize-js",
+  "version": "0.8.3-golem.1",
+  "homepage": "https://github.com/golemcloud/ComponentizeJS",
   "type": "module",
   "exports": "./src/componentize.js",
   "devDependencies": {
