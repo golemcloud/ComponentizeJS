@@ -6,7 +6,7 @@ export function getResult() {
     function getAndAssert() {
       return asyncGetJson('https://jsonplaceholder.typicode.com/users/1')
         .then((result) => {
-          console.log(JSON.stringify(result, null, '  '));
+          // console.log(JSON.stringify(result, null, '  '));
           assert(result != null, 'result is not nullish');
           doneCounter++;
         });
