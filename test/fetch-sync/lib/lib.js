@@ -9,7 +9,7 @@ function testAndReturnOK(f) {
     f();
   } catch (e) {
     console.error(e);
-    return e.toString();
+    return "nok: " + e.toString();
   }
   return 'ok';
 }
@@ -29,7 +29,18 @@ function testGetTextArray(url, length) {
     let result = JSON.parse(textResult);
     assert(result != null, 'result is not nullish');
     assert(result['length'] === length, `length == ${length}`);
-    // console.log(`result text size: ${result.length}`);
+    // console.log(`result text size: ${textResult.length}`);
+  });
+}
+
+function testGetArrayBufferArray(url, length) {
+  return testAndReturnOK(() => {
+    let arrayBufferResult = syncGetArrayBuffer(url);
+    let decoder = new TextDecoder();
+    let result = JSON.parse(decoder.decode(arrayBufferResult));
+    assert(result != null, 'result is not nullish');
+    assert(result['length'] === length, `length == ${length}`);
+    // console.log(`result bytes count: ${arrayBufferResult.length}`);
   });
 }
 
@@ -70,6 +81,15 @@ async function asyncGetText(url) {
 
 function syncGetText(url) {
   return asyncToSync(asyncGetText(url));
+}
+
+async function asyncGetArrayBuffer(url) {
+  let response = await fetch(url);
+  return response.arrayBuffer();
+}
+
+function syncGetArrayBuffer(url) {
+  return asyncToSync(asyncGetArrayBuffer(url));
 }
 
 async function asyncPatchJson(url, body) {
