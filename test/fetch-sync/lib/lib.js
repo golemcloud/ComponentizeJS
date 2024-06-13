@@ -19,17 +19,7 @@ function testGetJsonArray(url, length) {
     let result = syncGetJson(url);
     assert(result != null, 'result is not nullish');
     assert(result['length'] === length, `length == ${length}`);
-    console.log(`result json size: ${JSON.stringify(result).length}`);
-  });
-}
-
-function testPatch(url, body) {
-  return testAndReturnOK(() => {
-    let result = syncPatchJSON(url, body);
-    for (let key of Object.keys(body)) {
-      assert(result[key] != null, `result[${key}] is not nullish`);
-      assert(result[key] == body[key], `result[${key}]: ${result[key]}, body[${key}]: ${body[key]}`);
-    }
+    // console.log(`result json size: ${JSON.stringify(result).length}`);
   });
 }
 
@@ -39,7 +29,28 @@ function testGetTextArray(url, length) {
     let result = JSON.parse(textResult);
     assert(result != null, 'result is not nullish');
     assert(result['length'] === length, `length == ${length}`);
-    console.log(`result text size: ${result.length}`);
+    // console.log(`result text size: ${result.length}`);
+  });
+}
+
+function testPatchJson(url, body) {
+  return testAndReturnOK(() => {
+    let result = syncPatchJson(url, body);
+    for (let key of Object.keys(body)) {
+      assert(result[key] != null, `result[${key}] is not nullish`);
+      assert(result[key] === body[key], `result[${key}]: ${result[key]}, body[${key}]: ${body[key]}`);
+    }
+  });
+}
+
+function testPatchText(url, body) {
+  return testAndReturnOK(() => {
+    let textResult = syncPatchText(url, body);
+    let result = JSON.parse(textResult);
+    for (let key of Object.keys(body)) {
+      assert(result[key] != null, `result[${key}] is not nullish`);
+      assert(result[key] === body[key], `result[${key}]: ${result[key]}, body[${key}]: ${body[key]}`);
+    }
   });
 }
 
@@ -72,8 +83,23 @@ async function asyncPatchJson(url, body) {
   return response.json();
 }
 
-function syncPatchJSON(url, body) {
+function syncPatchJson(url, body) {
   return asyncToSync(asyncPatchJson(url, body));
+}
+
+async function asyncPatchText(url, body) {
+  let response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-type': 'application/json; charset=UTF-8'
+    },
+    body: JSON.stringify(body)
+  });
+  return response.text();
+}
+
+function syncPatchText(url, body) {
+  return asyncToSync(asyncPatchText(url, body));
 }
 
 function asyncToSync(promise) {
