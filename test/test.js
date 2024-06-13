@@ -253,11 +253,8 @@ suite('WASI', () => {
   });
 });
 
-const onlyFetchSyncCases = new Set([
-  // "get-json-mid-sync-repeated.js",
-]);
 const fetchSyncCases = await readdir(new URL('./fetch-sync', import.meta.url));
-suite.only('Fetch-Sync', () => {
+suite('Fetch-Sync', () => {
   const libSourcePromise = readFile(
     new URL(`./fetch-sync/lib/lib.js`, import.meta.url),
     'utf8'
@@ -266,10 +263,6 @@ suite.only('Fetch-Sync', () => {
 
   for (const name of fetchSyncCases) {
     if (!name.endsWith('.js')) {
-      continue;
-    }
-
-    if (onlyFetchSyncCases.size > 0 && !onlyFetchSyncCases.has(name)) {
       continue;
     }
 
