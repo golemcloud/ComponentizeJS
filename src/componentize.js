@@ -3,7 +3,7 @@ import {
   componentNew,
   metadataAdd,
   preview1AdapterReactorPath,
-} from '@bytecodealliance/jco';
+} from '@golemcloud/jco';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
