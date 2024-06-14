@@ -2,7 +2,7 @@
 JCO ?= ./node_modules/.bin/jco
 
 ifndef JCO
-	JCO = $(error No jco in PATH. Run npm install -g @bytecodealliance/jco)
+	JCO = $(error No jco in PATH. Run npm install -g @golemcloud/jco)
 endif
 
 # ifndef WASM_OPT

@@ -3,7 +3,7 @@ import {
   componentNew,
   metadataAdd,
   preview1AdapterReactorPath,
-} from '@bytecodealliance/jco';
+} from '@golemcloud/jco';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
@@ -24,7 +24,7 @@ const isWindows = platform === 'win32';
 const DEBUG_BINDINGS = false;
 const DEBUG_CALLS = false;
 
-function maybeWindowsPath (path) {
+function maybeWindowsPath(path) {
   if (!path) return path;
   if (!isWindows) return resolve(path);
   return '//?/' + resolve(path).replace(/\\/g, '/');
@@ -60,29 +60,14 @@ export async function componentize(jsSource, witWorld, opts) {
   const features = [];
   if (!disableFeatures.includes('stdio')) {
     features.push('stdio');
-  } else if (imports.some(([module]) => module.startsWith('wasi:cli/std') || module.startsWith('wasi:cli/terminal'))) {
-    throw new Error(
-      'Cannot disable "stdio" as it is already an import in the target world.'
-    );
   }
   if (!disableFeatures.includes('random')) {
     features.push('random');
-  } else if (imports.some(([module]) => module.startsWith('wasi:random/'))) {
-    throw new Error(
-      'Cannot disable "random" as it is already an import in the target world.'
-    );
   }
   if (!disableFeatures.includes('clocks')) {
     features.push('clocks');
-  } else if (imports.some(([module]) => module.startsWith('wasi:clocks/'))) {
-    throw new Error(
-      'Cannot disable "clocks" as it is already an import in the target world.'
-    );
   }
-  if (
-    enableFeatures.includes('http') ||
-    imports.some(([module]) => module.startsWith('wasi:http/'))
-  ) {
+  if (!disableFeatures.includes('http')) {
     features.push('http');
   }
 
@@ -314,7 +299,9 @@ export async function componentize(jsSource, witWorld, opts) {
   }
 
   // after wizering, stub out the wasi imports depending on what features are enabled
-  const finalBin = stubWasi(bin, features);
+  const finalBin = stubWasi(bin, features, witWorld,
+    maybeWindowsPath(witPath),
+    worldName,);
 
   const component = await metadataAdd(
     await componentNew(
