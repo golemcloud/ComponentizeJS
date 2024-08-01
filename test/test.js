@@ -5,6 +5,8 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { strictEqual } from 'node:assert';
 
+const DEBUG_TRACING = false;
+
 const builtinsCases = await readdir(new URL('./builtins', import.meta.url));
 suite('Builtins', () => {
   for (const filename of builtinsCases) {
@@ -17,7 +19,7 @@ suite('Builtins', () => {
         disableFeatures,
       } = await import(`./builtins/${filename}`);
 
-      const { component, imports } = await componentize(
+      const { component } = await componentize(
         source,
         `
         package local:runworld;
@@ -33,7 +35,7 @@ suite('Builtins', () => {
         }
       );
 
-      const { files } = await transpile(component, { name, wasiShim: true, tracing: false });
+      const { files } = await transpile(component, { name, wasiShim: true, tracing: DEBUG_TRACING });
 
       await mkdir(new URL(`./output/${name}/interfaces`, import.meta.url), {
         recursive: true,
@@ -141,15 +143,19 @@ suite('Bindings', () => {
 
       const test = await import(`./cases/${name}/test.js`);
 
+      const enableFeatures = test.enableFeatures || [];
+      const disableFeatures = test.disableFeatures || (isWasiTarget ? [] : ['random', 'clocks', 'http', 'stdio']);
+
+      let testArg;
       try {
         const { component, imports } = await componentize(source, {
           sourceName: `${name}.js`,
           witWorld,
           witPath,
           worldName,
-          disableFeatures: isWasiTarget ? [] : ['random', 'clocks']
+          enableFeatures,
+          disableFeatures
         });
-
         const map = {
           'wasi:cli-base/*': '@bytecodealliance/preview2-shim/cli-base#*',
           'wasi:clocks/*': '@bytecodealliance/preview2-shim/clocks#*',
@@ -168,12 +174,15 @@ suite('Bindings', () => {
           map[impt] = `../../cases/${name}/${importName}.js`;
         }
 
-        const { files } = await transpile(component, {
+        const { files, imports: componentImports, exports: componentExports } = await transpile(component, {
           name,
           map,
           wasiShim: true,
           validLiftingOptimization: false,
+          tracing: DEBUG_TRACING
         });
+
+        testArg = { imports, componentImports, componentExports };
 
         await mkdir(new URL(`./output/${name}/interfaces`, import.meta.url), {
           recursive: true,
@@ -200,7 +209,7 @@ suite('Bindings', () => {
         }
         throw e;
       }
-      await test.test(instance);
+      await test.test(instance, testArg);
     });
   }
 });
@@ -232,7 +241,7 @@ suite('WASI', () => {
       component
     );
 
-    const { files } = await transpile(component);
+    const { files } = await transpile(component, { tracing: DEBUG_TRACING });
 
     await mkdir(new URL(`./output/wasi/interfaces`, import.meta.url), {
       recursive: true,

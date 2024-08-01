@@ -4,7 +4,8 @@ export const source = `
   let val, err, done = false;
   export function run () {
     (async () => {
-      const res = await fetch('https://www.google.com');
+      // NOTE https://www.google.com fails with (new TypeError("malformed UTF-8 character sequence at offset 29381", "fetch.js", 15))
+      const res = await fetch('https://google.com');
       return res.text();
     })().then(text => {
       console.log(text);
@@ -13,6 +14,7 @@ export const source = `
       console.error(err);
       done = true;
     });
+    runEventLoopUntilInterest();
   }
   export function ready () {
     return done;
