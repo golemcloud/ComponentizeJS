@@ -1,4 +1,5 @@
-use crate::{uwrite, uwriteln};
+use crate::{uwrite, uwriteln, Features};
+use anyhow::{bail, Result};
 use heck::*;
 use js_component_bindgen::function_bindgen::{
     ErrHandling, FunctionBindgen, ResourceData, ResourceMap, ResourceTable,
@@ -124,7 +125,14 @@ pub struct Componentization {
     pub resource_imports: Vec<(String, String, u32)>,
 }
 
-pub fn componentize_bindgen(resolve: &Resolve, id: WorldId, name: &str) -> Componentization {
+pub fn componentize_bindgen(
+    resolve: &Resolve,
+    id: WorldId,
+    name: &str,
+    guest_imports: &Vec<String>,
+    guest_exports: &Vec<String>,
+    features: Vec<Features>,
+) -> Result<Componentization> {
     let mut bindgen = JsBindgen {
         src: Source::default(),
         esm_bindgen: EsmBindgen::default(),
@@ -147,9 +155,9 @@ pub fn componentize_bindgen(resolve: &Resolve, id: WorldId, name: &str) -> Compo
         .local_names
         .exclude_globals(Intrinsic::get_global_names());
 
-    bindgen.imports_bindgen();
+    bindgen.imports_bindgen(&guest_imports);
 
-    bindgen.exports_bindgen();
+    bindgen.exports_bindgen(&guest_exports, features)?;
     bindgen.esm_bindgen.populate_export_aliases();
 
     // consolidate import specifiers and generate wrappers
@@ -226,7 +234,11 @@ pub fn componentize_bindgen(resolve: &Resolve, id: WorldId, name: &str) -> Compo
     let mut finalization_registries = Vec::new();
     for (key, export) in &resolve.worlds[id].exports {
         let key_name = resolve.name_world_key(key);
-        if let WorldItem::Interface(iface_id) = export {
+        if let WorldItem::Interface {
+            id: iface_id,
+            stability: _,
+        } = export
+        {
             let iface = &resolve.interfaces[*iface_id];
             for ty_id in iface.types.values() {
                 let ty = &resolve.types[*ty_id];
@@ -269,7 +281,11 @@ pub fn componentize_bindgen(resolve: &Resolve, id: WorldId, name: &str) -> Compo
     let mut imported_resource_modules = HashMap::new();
     for (key, import) in &resolve.worlds[id].imports {
         let key_name = resolve.name_world_key(key);
-        if let WorldItem::Interface(iface_id) = import {
+        if let WorldItem::Interface {
+            id: iface_id,
+            stability: _,
+        } = import
+        {
             let iface = &resolve.interfaces[*iface_id];
             for ty_id in iface.types.values() {
                 let ty = &resolve.types[*ty_id];
@@ -348,13 +364,13 @@ pub fn componentize_bindgen(resolve: &Resolve, id: WorldId, name: &str) -> Compo
     output.push_str(&js_intrinsics);
     output.push_str(&bindgen.src);
 
-    Componentization {
+    Ok(Componentization {
         js_bindings: output.to_string(),
         exports: bindgen.exports,
         imports: bindgen.imports,
         import_wrappers,
         resource_imports,
-    }
+    })
 }
 
 impl JsBindgen<'_> {
@@ -363,9 +379,59 @@ impl JsBindgen<'_> {
         return intrinsic.name().to_string();
     }
 
-    fn exports_bindgen(&mut self) {
+    fn exports_bindgen(
+        &mut self,
+        guest_exports: &Vec<String>,
+        features: Vec<Features>,
+    ) -> Result<()> {
         for (key, export) in &self.resolve.worlds[self.world].exports {
             let name = self.resolve.name_world_key(key);
+
+            // Do not generate exports when the guest export is not implemented.
+            // We check both the full interface name - "ns:pkg@v/my-interface" and the
+            // aliased interface name "myInterface". All other names are always
+            // camel-case in the check.
+            match key {
+                WorldKey::Interface(iface) => {
+                    if !guest_exports.contains(&name) {
+                        let iface = &self.resolve.interfaces[*iface];
+                        if let Some(iface_name) = iface.name.as_ref() {
+                            let camel_case_name = iface_name.to_lower_camel_case();
+                            if !guest_exports.contains(&camel_case_name) {
+                                // For wasi:http/incoming-handler, we treat it
+                                // as a special case as the engine already
+                                // provides the export using fetchEvent and that
+                                // can be used when an explicit export is not
+                                // defined by the guest content.
+                                if iface_name == "incoming-handler"
+                                    || name == "wasi:http/incoming-handler@0.2.0"
+                                {
+                                    if !features.contains(&Features::Http) {
+                                        bail!(
+                                            "JS export definition for '{}' not found. Cannot use fetchEvent because the http feature is not enabled.",
+                                            camel_case_name
+                                        )
+                                    }
+                                    continue;
+                                }
+                                bail!("Expected a JS export definition for '{}'", camel_case_name);
+                            }
+                            // TODO: move populate_export_aliases to a preprocessing
+                            // step that doesn't require esm_bindgen, so that we can
+                            // do alias deduping here as well.
+                        } else {
+                            continue;
+                        }
+                    }
+                }
+                WorldKey::Name(export_name) => {
+                    let camel_case_name = export_name.to_lower_camel_case();
+                    if !guest_exports.contains(&camel_case_name) {
+                        bail!("Expected a JS export definition for '{}'", camel_case_name);
+                    }
+                }
+            }
+
             match export {
                 WorldItem::Function(func) => {
                     let local_name = self.local_names.create_once(&func.name).to_string();
@@ -383,7 +449,7 @@ impl JsBindgen<'_> {
                         func.name.to_lower_camel_case(),
                     );
                 }
-                WorldItem::Interface(id) => {
+                WorldItem::Interface { id, stability: _ } => {
                     let iface = &self.resolve.interfaces[*id];
                     for id in iface.types.values() {
                         if let TypeDefKind::Resource = &self.resolve.types[*id].kind {
@@ -449,16 +515,23 @@ impl JsBindgen<'_> {
                 WorldItem::Type(_) => {}
             }
         }
+        Ok(())
     }
 
-    fn imports_bindgen(&mut self) {
+    fn imports_bindgen(&mut self, guest_imports: &Vec<String>) {
         for (key, impt) in &self.resolve.worlds[self.world].imports {
             let import_name = self.resolve.name_world_key(key);
+            if !guest_imports.contains(&import_name) {
+                continue;
+            }
             match &impt {
                 WorldItem::Function(f) => {
                     self.import_bindgen(import_name, f, false, None);
                 }
-                WorldItem::Interface(i) => {
+                WorldItem::Interface {
+                    id: i,
+                    stability: _,
+                } => {
                     let iface = &self.resolve.interfaces[*i];
                     for id in iface.types.values() {
                         if let TypeDefKind::Resource = &self.resolve.types[*id].kind {
@@ -774,7 +847,7 @@ impl JsBindgen<'_> {
             },
             src: Source::default(),
             resource_map: &resource_map,
-            cur_resource_borrows: Vec::new(),
+            cur_resource_borrows: false,
             resolve: self.resolve,
             callee_resource_dynamic: false,
         };
