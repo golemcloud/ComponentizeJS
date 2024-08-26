@@ -1,6 +1,6 @@
 {
   "name": "@golemcloud/componentize-js",
-  "version": "0.10.5-golem.1",
+  "version": "0.10.5-golem.2",
   "homepage": "https://github.com/golemcloud/ComponentizeJS",
   "type": "module",
   "exports": "./src/componentize.js",
@@ -9,7 +9,7 @@
     "mocha": "^10.2.0"
   },
   "dependencies": {
-    "@golemcloud/jco": "1.2.4-golem.2",
+    "@golemcloud/jco": "1.4.4-golem.1",
     "@bytecodealliance/wizer": "^7.0.4",
     "es-module-lexer": "^1.5.4"
   },
