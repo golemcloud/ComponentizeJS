@@ -1,5 +1,5 @@
 {
-  "name": "@bytecodealliance/componentize-js",
+  "name": "@golemcloud/componentize-js",
   "version": "0.10.5-golem.1",
   "homepage": "https://github.com/golemcloud/ComponentizeJS",
   "type": "module",
