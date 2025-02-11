@@ -1084,7 +1084,7 @@ impl EsmBindgen {
         &mut self,
         output: &mut Source,
         imports_object: &str,
-        _local_names: &mut LocalNames,
+        local_names: &mut LocalNames,
         source_name: &str,
     ) {
         // TODO: bring back these validations of imports
@@ -1130,50 +1130,39 @@ impl EsmBindgen {
         for (export_name, binding) in &self.exports {
             match binding {
                 Binding::Interface(bindings) => {
-                    uwrite!(output, "const ");
-                    uwrite!(output, "{{");
-                    let mut first = true;
+
+                    let (interface_name, _) = local_names.get_or_create(export_name, "iface");
+
+                    if let Some(alias) = self.export_aliases.get(export_name) {
+                        // aliased namespace id
+                        uwriteln!(
+                            output,
+                            "const {interface_name} = getInterfaceExport({imports_object}, '{alias}', '{export_name}');",
+                        );
+                    } else if export_name.contains(':') {
+                        // ID case without alias (different error messaging)
+                        uwriteln!(
+                            output,
+                            "const {interface_name} = getInterfaceExport({imports_object}, null, '{export_name}');",
+                        );
+                    } else {
+                        // kebab name interface
+                        uwriteln!(
+                            output,
+                            "const {interface_name} = getInterfaceExport({imports_object}, '{export_name}', null);",
+                        );
+                    }
+
                     for (external_name, import) in bindings {
-                        if first {
-                            output.push_str(" ");
-                            first = false;
-                        } else {
-                            output.push_str(", ");
-                        }
                         let local_name = match import {
                             Binding::Interface(_) => panic!("Nested interfaces unsupported"),
                             Binding::Resource(local_name) | Binding::Local(local_name) => {
                                 local_name
                             }
                         };
-                        if external_name == local_name {
-                            uwrite!(output, "{external_name}");
-                        } else {
-                            uwrite!(output, "{external_name}: {local_name}");
-                        }
+                        uwriteln!(output, "const {local_name} = {interface_name}.{external_name}.bind({interface_name});");
                     }
-                    if !first {
-                        output.push_str(" ");
-                    }
-                    if let Some(alias) = self.export_aliases.get(export_name) {
-                        // aliased namespace id
-                        uwriteln!(
-                            output,
-                            "}} = getInterfaceExport({imports_object}, '{alias}', '{export_name}');",
-                        );
-                    } else if export_name.contains(':') {
-                        // ID case without alias (different error messaging)
-                        uwriteln!(
-                            output,
-                            "}} = getInterfaceExport({imports_object}, null, '{export_name}');",
-                        );
-                    } else {
-                        // kebab name interface
-                        uwriteln!(
-                            output,
-                            "}} = getInterfaceExport({imports_object}, '{export_name}', null);",
-                        );
-                    }
+
                     // After defining all the local bindings, verify them throwing errors as necessary
                     for (external_name, import) in bindings {
                         let local_name = match import {
