@@ -117,8 +117,7 @@ impl Guest for SpidermonkeyEmbeddingSplicerComponent {
         features: Vec<Features>,
         debug: bool,
         bind_functions_to_interface: bool,
-        expect_top_level_resource_classes: bool
-
+        expect_top_level_resource_classes: bool,
     ) -> Result<SpliceResult, String> {
         let source_name = source_name.unwrap_or("source.js".to_string());
 
@@ -198,7 +197,7 @@ impl Guest for SpidermonkeyEmbeddingSplicerComponent {
             &guest_exports,
             features,
             bind_functions_to_interface,
-            expect_top_level_resource_classes
+            expect_top_level_resource_classes,
         )
         .map_err(|err| err.to_string())?;
 
