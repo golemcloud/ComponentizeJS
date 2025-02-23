@@ -9,7 +9,7 @@
     "mocha": "^10.2.0"
   },
   "dependencies": {
-    "@golemcloud/jco": "1.4.4-golem.1",
+    "@golemcloud/jco": "file:/Users/vigoo/projects/ziverge/jco",
     "@bytecodealliance/wizer": "^7.0.4",
     "es-module-lexer": "^1.5.4"
   },

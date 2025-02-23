@@ -134,6 +134,8 @@ pub fn componentize_bindgen(
     guest_imports: &Vec<String>,
     guest_exports: &Vec<String>,
     features: Vec<Features>,
+    bind_functions_to_interface: bool,
+    expect_top_level_resource_classes: bool,
 ) -> Result<Componentization> {
     let local_package_name = resolve.id_of_name(resolve.worlds[id].package.unwrap(), "");
     let mut bindgen = JsBindgen {
@@ -362,6 +364,8 @@ pub fn componentize_bindgen(
         "$source_mod",
         &mut bindgen.local_names,
         name,
+        bind_functions_to_interface,
+        expect_top_level_resource_classes,
     );
 
     let js_intrinsics = render_intrinsics(&mut bindgen.all_intrinsics, false, true);
@@ -1086,6 +1090,8 @@ impl EsmBindgen {
         imports_object: &str,
         local_names: &mut LocalNames,
         source_name: &str,
+        bind_functions_to_interface: bool,
+        expect_top_level_resource_classes: bool,
     ) {
         // TODO: bring back these validations of imports
         // including using the flattened bindings
@@ -1130,7 +1136,6 @@ impl EsmBindgen {
         for (export_name, binding) in &self.exports {
             match binding {
                 Binding::Interface(bindings) => {
-
                     let (interface_name, _) = local_names.get_or_create(export_name, "iface");
 
                     if let Some(alias) = self.export_aliases.get(export_name) {
@@ -1154,13 +1159,44 @@ impl EsmBindgen {
                     }
 
                     for (external_name, import) in bindings {
-                        let local_name = match import {
+                        match import {
                             Binding::Interface(_) => panic!("Nested interfaces unsupported"),
-                            Binding::Resource(local_name) | Binding::Local(local_name) => {
-                                local_name
+                            Binding::Resource(local_name) => {
+                                if expect_top_level_resource_classes {
+                                    let class_export_name =
+                                        format!("{export_name}_{external_name}");
+                                    if let Some(alias) = self.export_aliases.get(export_name) {
+                                        let class_alias = format!("{alias}_{external_name}");
+                                        // aliased namespace id
+                                        uwriteln!(
+                                            output,
+                                            "const {local_name} = {imports_object}['{class_alias}'];",
+                                        );
+                                    } else {
+                                        uwriteln!(
+                                            output,
+                                            "const {local_name} = {imports_object}['{class_export_name}'];",
+                                        );
+                                    }
+                                } else {
+                                    if bind_functions_to_interface {
+                                        uwriteln!(output, "const {local_name} = {interface_name}.{external_name}.bind({interface_name});");
+                                    } else {
+                                        uwriteln!(output, "const {local_name} = {interface_name}.{external_name};");
+                                    }
+                                }
+                            }
+                            Binding::Local(local_name) => {
+                                if bind_functions_to_interface {
+                                    uwriteln!(output, "const {local_name} = {interface_name}.{external_name}.bind({interface_name});");
+                                } else {
+                                    uwriteln!(
+                                        output,
+                                        "const {local_name} = {interface_name}.{external_name};"
+                                    );
+                                }
                             }
                         };
-                        uwriteln!(output, "const {local_name} = {interface_name}.{external_name}.bind({interface_name});");
                     }
 
                     // After defining all the local bindings, verify them throwing errors as necessary
