@@ -1,18 +1,27 @@
 import wizer from '@bytecodealliance/wizer';
-import { componentNew, metadataAdd, preview1AdapterReactorPath } from '@golemcloud/jco';
+import {
+  componentNew,
+  metadataAdd,
+  preview1AdapterReactorPath,
+} from '@golemcloud/jco';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { spliceBindings, stubWasi } from '../lib/spidermonkey-embedding-splicer.js';
+import {
+  spliceBindings,
+  stubWasi,
+} from '../lib/spidermonkey-embedding-splicer.js';
 import { fileURLToPath } from 'node:url';
 import { stdout, stderr, exit, platform } from 'node:process';
 import { init as lexerInit, parse } from 'es-module-lexer';
-const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+const { version } = JSON.parse(
+  await readFile(new URL('../package.json', import.meta.url), 'utf8')
+);
 const isWindows = platform === 'win32';
-const DEBUG_BINDINGS = true;
+const DEBUG_BINDINGS = false;
 const DEBUG_CALLS = false;
 
 function maybeWindowsPath(path) {
@@ -28,7 +37,9 @@ export async function componentize(jsSource, witWorld, opts) {
   }
   const {
     sourceName = 'source.js',
-    engine = fileURLToPath(new URL(`../lib/starlingmonkey_embedding.wasm`, import.meta.url)),
+    engine = fileURLToPath(
+      new URL(`../lib/starlingmonkey_embedding.wasm`, import.meta.url)
+    ),
     preview2Adapter = preview1AdapterReactorPath(),
     witPath,
     worldName,
@@ -56,6 +67,7 @@ export async function componentize(jsSource, witWorld, opts) {
   jsExports.map((k) => {
     guestExports.push(k.n);
   });
+
 
   // we never disable a feature that is already in the target world usage
   const features = [];
@@ -94,7 +106,7 @@ export async function componentize(jsSource, witWorld, opts) {
       jsBindings
         .split('\n')
         .map((ln, idx) => `${(idx + 1).toString().padStart(4, ' ')} | ${ln}`)
-        .join('\n'),
+        .join('\n')
     );
     console.log('--- JS Imports ---');
     console.log(imports);
@@ -103,7 +115,13 @@ export async function componentize(jsSource, witWorld, opts) {
     console.log(exports);
   }
 
-  const tmpDir = join(tmpdir(), createHash('sha256').update(Math.random().toString()).digest('hex').slice(0, 12));
+  const tmpDir = join(
+    tmpdir(),
+    createHash('sha256')
+      .update(Math.random().toString())
+      .digest('hex')
+      .slice(0, 12)
+  );
   await mkdir(tmpDir);
 
   const input = join(tmpDir, 'in.wasm');
@@ -138,7 +156,9 @@ export async function componentize(jsSource, witWorld, opts) {
         `./${sourceName.replace(':', '__').replace('/', '$')}.js`,
         source,
       ]),
-    ].map(async ([sourceName, source]) => writeFile(join(sourceDir, sourceName), source)),
+    ].map(async ([sourceName, source]) =>
+      writeFile(join(sourceDir, sourceName), source)
+    )
   );
 
   const env = {
@@ -150,7 +170,8 @@ export async function componentize(jsSource, witWorld, opts) {
 
   for (const [idx, [export_name, expt]] of exports.entries()) {
     env[`EXPORT${idx}_NAME`] = export_name;
-    env[`EXPORT${idx}_ARGS`] = (expt.paramptr ? '*' : '') + expt.params.join(',');
+    env[`EXPORT${idx}_ARGS`] =
+      (expt.paramptr ? '*' : '') + expt.params.join(',');
     env[`EXPORT${idx}_RET`] = (expt.retptr ? '*' : '') + (expt.ret || '');
     env[`EXPORT${idx}_RETSIZE`] = String(expt.retsize);
   }
@@ -182,14 +203,19 @@ export async function componentize(jsSource, witWorld, opts) {
       {
         stdio: [null, stdout, stderr],
         env,
-        input: maybeWindowsPath(join(sourceDir, sourceName.slice(0, -3) + '.bindings.js')),
+        input: maybeWindowsPath(
+          join(sourceDir, sourceName.slice(0, -3) + '.bindings.js')
+        ),
         shell: true,
         encoding: 'utf-8',
-      },
+      }
     );
-    if (wizerProcess.status !== 0) throw new Error('Wizering failed to complete');
+    if (wizerProcess.status !== 0)
+      throw new Error('Wizering failed to complete');
   } catch (error) {
-    let err = `Failed to initialize the compiled Wasm binary with Wizer:\n` + error.message;
+    let err =
+      `Failed to initialize the compiled Wasm binary with Wizer:\n` +
+      error.message;
     if (DEBUG_BINDINGS) {
       err += `\nBinary and sources available for debugging at ${tmpDir}\n`;
     } else {
@@ -200,7 +226,9 @@ export async function componentize(jsSource, witWorld, opts) {
 
   const bin = await readFile(output);
 
-  const tmpdirRemovePromise = DEBUG_BINDINGS ? Promise.resolve() : rm(tmpDir, { recursive: true });
+  const tmpdirRemovePromise = DEBUG_BINDINGS
+    ? Promise.resolve()
+    : rm(tmpDir, { recursive: true });
 
   // Check for initialization errors
   // By actually executing the binary in a mini sandbox to get back
@@ -214,7 +242,9 @@ export async function componentize(jsSource, witWorld, opts) {
 
   async function initWasm(bin) {
     const eep = (name) => () => {
-      throw new Error(`Internal error: unexpected call to "${name}" during Wasm verification`);
+      throw new Error(
+        `Internal error: unexpected call to "${name}" during Wasm verification`
+      );
     };
 
     let stderr = '';
@@ -232,7 +262,9 @@ export async function componentize(jsSource, witWorld, opts) {
           for (let i = 0; i < iovs_len; i++) {
             const bufPtr = mem.getUint32(iovs + i * 8, true);
             const bufLen = mem.getUint32(iovs + 4 + i * 8, true);
-            stderr += new TextDecoder().decode(new Uint8Array(exports.memory.buffer, bufPtr, bufLen));
+            stderr += new TextDecoder().decode(
+              new Uint8Array(exports.memory.buffer, bufPtr, bufLen)
+            );
             written += bufLen;
           }
           mem.setUint32(nwritten, written, true);
@@ -256,7 +288,9 @@ export async function componentize(jsSource, witWorld, opts) {
   }
 
   // convert CABI import conventiosn to ESM import conventions
-  imports = imports.map(([specifier, impt]) => (specifier === '$root' ? [impt, 'default'] : [specifier, impt]));
+  imports = imports.map(([specifier, impt]) =>
+    specifier === '$root' ? [impt, 'default'] : [specifier, impt]
+  );
 
   const INIT_OK = 0;
   const INIT_FN_LIST = 11;
@@ -287,7 +321,13 @@ export async function componentize(jsSource, witWorld, opts) {
   }
 
   // after wizering, stub out the wasi imports depending on what features are enabled
-  const finalBin = stubWasi(bin, features, witWorld, maybeWindowsPath(witPath), worldName);
+  const finalBin = stubWasi(
+    bin,
+    features,
+    witWorld,
+    maybeWindowsPath(witPath),
+    worldName
+  );
 
   const component = await metadataAdd(
     await componentNew(
@@ -295,12 +335,12 @@ export async function componentize(jsSource, witWorld, opts) {
       Object.entries({
         wasi_snapshot_preview1: await readFile(preview2Adapter),
       }),
-      false,
+      false
     ),
     Object.entries({
       language: [['JavaScript', '']],
       'processed-by': [['ComponentizeJS', version]],
-    }),
+    })
   );
 
   return {
