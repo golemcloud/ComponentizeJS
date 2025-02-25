@@ -1,6 +1,6 @@
 {
   "name": "@golemcloud/componentize-js",
-  "version": "0.10.5-golem.2",
+  "version": "0.10.5-golem.4",
   "homepage": "https://github.com/golemcloud/ComponentizeJS",
   "type": "module",
   "exports": "./src/componentize.js",
