@@ -45,6 +45,8 @@ export async function componentize(jsSource, witWorld, opts) {
     worldName,
     disableFeatures = [],
     enableFeatures = [],
+    bindFunctionsToInterface = false,
+    expectTopLevelResourceClasses = false,
   } = opts || {};
 
   await lexerInit;
@@ -91,9 +93,10 @@ export async function componentize(jsSource, witWorld, opts) {
     guestImports,
     guestExports,
     features,
-    false
+    false, // debug
+    bindFunctionsToInterface,
+    expectTopLevelResourceClasses,
   );
-
 
   if (DEBUG_BINDINGS) {
     console.log('--- JS Source ---');
